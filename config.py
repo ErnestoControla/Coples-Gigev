@@ -14,11 +14,11 @@ class CameraConfig:
     MAX_CAMERAS = 16
     
     # Parámetros de captura optimizados para resolución alta
-    EXPOSURE_TIME = 15000      # 15ms - tiempo de exposición optimizado
+    EXPOSURE_TIME = 20000      # 20ms - tiempo de exposición optimizado
     FRAMERATE = 10.0          # 10 FPS - reducido para menor carga CPU
     PACKET_SIZE = 9000        # Tamaño de paquete jumbo
     NUM_BUFFERS = 2           # Solo 2 buffers para minimizar memoria
-    GAIN = 1.0               # Ganancia mínima para mejor calidad
+    GAIN = 2.0               # Ganancia mínima para mejor calidad
     
     # Configuración del ROI
     ROI_WIDTH = 1280
@@ -36,16 +36,16 @@ class InferenceConfig:
     """Configuración del modelo de inferencia ONNX"""
     
     # Archivos del modelo
-    DEFAULT_MODEL_PATH = "coples_seg1C4V.onnx"
+    DEFAULT_MODEL_PATH = "coples_seg1C8V.onnx"
     CLASSES_FILE = "coples_seg_clases.txt"
     
     # Parámetros de preprocesamiento
     INPUT_SIZE = 1024         # Resolución del modelo (1024x1024)
     
     # Parámetros de inferencia
-    CONFIDENCE_THRESHOLD = 0.5
-    MAX_DETECTIONS = 3        # Máximo 3 detecciones para evitar problemas de memoria
-    IOU_THRESHOLD = 0.5       # Para filtrar detecciones solapadas
+    CONFIDENCE_THRESHOLD = 0.3
+    MAX_DETECTIONS = 10        # Máximo 5 detecciones para evitar problemas de memoria
+    IOU_THRESHOLD = 0.4       # Para filtrar detecciones solapadas
     
     # Timeouts (en segundos)
     INFERENCE_TIMEOUT = 2.0   # 2s timeout para inferencia
@@ -149,12 +149,18 @@ class DevConfig:
     """Configuración para desarrollo y debug"""
     
     # Flags de debug
-    DEBUG_INFERENCE = False
+    DEBUG_INFERENCE = True    # Cambiar a True para análisis detallado
     DEBUG_CAMERA = False
-    DEBUG_PROCESSING = False
+    DEBUG_PROCESSING = True   # Cambiar a True para ver procesamiento paso a paso
+    DEBUG_MASKS = True        # Cambiar a True para análisis de máscaras
     
     # Límites de logging
     MAX_LOG_LINES = 1000
     
     # Configuración de logging
-    LOG_LEVEL = "INFO"  # DEBUG, INFO, WARNING, ERROR 
+    LOG_LEVEL = "DEBUG"  # DEBUG, INFO, WARNING, ERROR
+    
+    # Configuración para desarrollo
+    SAVE_INTERMEDIATE_RESULTS = True  # Guardar resultados intermedios
+    SHOW_MASK_STATISTICS = True       # Mostrar estadísticas detalladas de máscaras
+    ANALYZE_DETECTIONS = True         # Análisis detallado de detecciones 

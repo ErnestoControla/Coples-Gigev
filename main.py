@@ -147,12 +147,61 @@ class SistemaSegmentacionCoples:
                 stats = calcular_estadisticas_mascara(mascara)
                 if stats['defect_pixels'] > 0:
                     print(f"   📊 Defectos: {stats['defect_pixels']} píxeles ({stats['percentage']:.2f}%)")
+                
+                # Guardar resultados intermedios para desarrollo
+                from config import DevConfig
+                if DevConfig.SAVE_INTERMEDIATE_RESULTS and stats['defect_pixels'] > 0:
+                    self._guardar_resultados_desarrollo(filepath, mascara, stats)
             
             return filepath
             
         except Exception as e:
             print(f"❌ Error guardando imagen: {e}")
             return None
+    
+    def _guardar_resultados_desarrollo(self, filepath_base, mascara, stats):
+        """
+        Guarda resultados intermedios para análisis de desarrollo.
+        
+        Args:
+            filepath_base (str): Ruta base del archivo
+            mascara (np.ndarray): Máscara de segmentación
+            stats (dict): Estadísticas de la máscara
+        """
+        try:
+            import json
+            
+            # Crear nombre base sin extensión
+            base_name = os.path.splitext(filepath_base)[0]
+            
+            # Guardar máscara como imagen separada
+            mask_path = f"{base_name}_mask.png"
+            # Convertir máscara a escala de grises visible
+            mask_visual = (mascara * 255).astype(np.uint8)
+            cv2.imwrite(mask_path, mask_visual)
+            
+            # Guardar estadísticas como JSON
+            stats_path = f"{base_name}_stats.json"
+            stats_to_save = {
+                'total_pixels': int(stats['total_pixels']),
+                'defect_pixels': int(stats['defect_pixels']),
+                'percentage': float(stats['percentage']),
+                'num_regions': int(stats['num_regions']),
+                'areas': [float(area) for area in stats['areas']],
+                'avg_area': float(stats['avg_area']),
+                'max_area': float(stats['max_area']),
+                'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            with open(stats_path, 'w') as f:
+                json.dump(stats_to_save, f, indent=2)
+            
+            print(f"   🔍 Resultados debug guardados:")
+            print(f"      - Máscara: {mask_path}")
+            print(f"      - Estadísticas: {stats_path}")
+            
+        except Exception as e:
+            print(f"   ⚠️ Error guardando resultados debug: {e}")
     
     def obtener_estadisticas(self):
         """

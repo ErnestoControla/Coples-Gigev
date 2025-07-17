@@ -9,7 +9,7 @@ import onnxruntime as ort
 import concurrent.futures
 
 # Importar módulos propios
-from config import InferenceConfig, GlobalConfig
+from config import InferenceConfig, GlobalConfig, DevConfig
 from utils import (
     get_segmentation_classes, 
     create_colormap, 
@@ -264,6 +264,10 @@ class SegmentadorCoplesONNX:
                 else:
                     print(f"🎯 Detecciones de segmentación encontradas: {len(valid_predictions)}")
                 
+                # Análisis debug de detecciones
+                if DevConfig.DEBUG_INFERENCE:
+                    self._debug_analisis_detecciones(valid_predictions, w, h)
+                
                 # Crear máscaras para cada detección
                 mascara = self._crear_mascaras_detecciones(valid_predictions, prototipos, w, h)
                 
@@ -399,6 +403,106 @@ class SegmentadorCoplesONNX:
             print(f"   - Regiones detectadas: {stats['num_regions']}")
             print(f"   - Área promedio: {stats['avg_area']:.1f} píxeles")
             print(f"   - Área máxima: {stats['max_area']:.1f} píxeles")
+            
+            # Modo debug para desarrollo
+            if DevConfig.DEBUG_MASKS:
+                self._debug_analisis_mascara(mascara, stats)
+    
+    def _debug_analisis_mascara(self, mascara, stats):
+        """
+        Análisis detallado de máscaras para desarrollo.
+        
+        Args:
+            mascara (np.ndarray): Máscara final
+            stats (dict): Estadísticas de la máscara
+        """
+        print(f"\n🔍 ANÁLISIS DEBUG - MÁSCARAS:")
+        print(f"   📏 Dimensiones: {mascara.shape}")
+        print(f"   📊 Valores únicos: {np.unique(mascara)}")
+        print(f"   🎯 Píxeles por valor:")
+        
+        for valor in np.unique(mascara):
+            pixels = np.sum(mascara == valor)
+            porcentaje = (pixels / mascara.size) * 100
+            print(f"      - Valor {valor}: {pixels} píxeles ({porcentaje:.3f}%)")
+        
+        # Análisis de distribución de áreas
+        if stats['areas']:
+            areas_sorted = sorted(stats['areas'], reverse=True)
+            print(f"   📐 Distribución de áreas (top 5):")
+            for i, area in enumerate(areas_sorted[:5]):
+                print(f"      - Región {i+1}: {area:.1f} píxeles")
+        
+        # Análisis de conectividad
+        import cv2
+        contours, _ = cv2.findContours(mascara, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            print(f"   🔗 Análisis de conectividad:")
+            print(f"      - Componentes conectados: {len(contours)}")
+            
+            # Mostrar información de cada componente
+            for i, contour in enumerate(contours):
+                area = cv2.contourArea(contour)
+                perimeter = cv2.arcLength(contour, True)
+                if area > 0:
+                    compactness = perimeter**2 / (4 * np.pi * area)
+                    print(f"      - Componente {i+1}: área={area:.1f}, perímetro={perimeter:.1f}, compacidad={compactness:.2f}")
+        
+        print(f"   ✅ Análisis DEBUG completado\n")
+    
+    def _debug_analisis_detecciones(self, detecciones, w, h):
+        """
+        Análisis detallado de detecciones para desarrollo.
+        
+        Args:
+            detecciones (np.ndarray): Detecciones válidas
+            w, h (int): Dimensiones de la imagen
+        """
+        print(f"\n🔍 ANÁLISIS DEBUG - DETECCIONES:")
+        print(f"   📊 Total de detecciones: {len(detecciones)}")
+        print(f"   📏 Imagen: {w}x{h} píxeles")
+        
+        for i, detection in enumerate(detecciones):
+            cx, cy, w_norm, h_norm = detection[:4]
+            conf = detection[4]
+            
+            # Calcular dimensiones en píxeles
+            x_center = int(cx * w)
+            y_center = int(cy * h)
+            box_w = int(w_norm * w)
+            box_h = int(h_norm * h)
+            
+            # Calcular área del bounding box
+            area_bbox = box_w * box_h
+            
+            print(f"   🎯 Detección {i+1}:")
+            print(f"      - Confianza: {conf:.3f}")
+            print(f"      - Centro: ({x_center}, {y_center})")
+            print(f"      - Dimensiones: {box_w}x{box_h} píxeles")
+            print(f"      - Área bbox: {area_bbox} píxeles")
+            print(f"      - Coordenadas normalizadas: ({cx:.3f}, {cy:.3f}, {w_norm:.3f}, {h_norm:.3f})")
+            
+            # Verificar si las coordenadas son válidas
+            x1 = max(0, x_center - box_w // 2)
+            y1 = max(0, y_center - box_h // 2)
+            x2 = min(w, x_center + box_w // 2)
+            y2 = min(h, y_center + box_h // 2)
+            
+            if x1 < w and y1 < h and x2 > 0 and y2 > 0:
+                print(f"      - Bbox válido: [{x1}, {y1}, {x2}, {y2}]")
+            else:
+                print(f"      - ⚠️ Bbox inválido: [{x1}, {y1}, {x2}, {y2}]")
+            
+            # Análisis de coeficientes si están disponibles
+            if len(detection) >= 37:
+                coef_start = 5 if len(detection) == 37 else 6
+                coeficientes = detection[coef_start:coef_start+32]
+                
+                print(f"      - Coeficientes: rango [{coeficientes.min():.3f}, {coeficientes.max():.3f}]")
+                print(f"      - Coef. promedio: {coeficientes.mean():.3f}")
+                print(f"      - Coef. std: {coeficientes.std():.3f}")
+        
+        print(f"   ✅ Análisis de detecciones completado\n")
     
     def _limpiar_memoria_inferencia(self, input_tensor, results):
         """
