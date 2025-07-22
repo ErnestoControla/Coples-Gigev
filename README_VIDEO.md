@@ -11,7 +11,8 @@ Sistema de inferencia de video en tiempo real para detección de defectos en cop
   - ✅ **OK** (Verde): Pieza sin defectos detectados
   - ❌ **NG** (Rojo): Pieza con defectos encontrados
 - **Contador de Defectos**: Muestra el número exacto de regiones defectuosas en el frame actual
-- **Guardado Automático**: Los frames se pueden guardar en la carpeta `salida_video/`
+- **Guardado de Frames**: Los frames individuales se pueden guardar en la carpeta `salida_video/`
+- **Grabación de Video**: Grabación continua en formato AVI de toda la sesión de inferencia
 - **Estadísticas en Tiempo Real**: FPS, tiempo de inferencia, timestamp
 
 ## 🚀 Uso del Sistema
@@ -28,11 +29,23 @@ O directamente:
 python cople_video/Inferencia_video.py
 ```
 
+### Probar Codecs Disponibles
+
+Antes de usar el sistema, puedes verificar qué codecs funcionan en tu sistema:
+
+```bash
+python test_codecs.py
+```
+
+Este script te dirá cuáles codecs están disponibles y funcionan correctamente.
+
 ### Controles Durante la Ejecución
 
 | Tecla | Acción |
 |-------|--------|
 | `s` | Guardar frame actual con anotaciones |
+| `r` | Iniciar/Detener grabación de video |
+| `c` | Cambiar codec de video (MJPG/XVID/H264/MP4V) |
 | `q` | Salir del sistema |
 
 ### Información en Pantalla
@@ -44,6 +57,7 @@ El sistema muestra en tiempo real:
 3. **FPS Actual**: Frames por segundo del sistema
 4. **Tiempo de Inferencia**: Tiempo que toma el modelo en procesar cada frame
 5. **Timestamp**: Hora actual en la esquina inferior derecha
+6. **Indicador de Grabación**: Círculo rojo "REC" cuando se está grabando video
 
 ## 📁 Estructura de Archivos
 
@@ -77,6 +91,7 @@ roi_offset_y = 576       # Offset Y del ROI
 confidence_threshold = 0.4    # Umbral de confianza más restrictivo para video
 max_detections = 5           # Máximo 5 detecciones por frame para rendimiento
 inference_timeout = 1.5      # Timeout de 1.5s para inferencia
+fps_grabacion = 5.0          # FPS para grabación de video (ajustado al rendimiento real)
 ```
 
 ## 📊 Rendimiento Esperado
@@ -84,6 +99,7 @@ inference_timeout = 1.5      # Timeout de 1.5s para inferencia
 - **FPS**: 10-15 FPS (dependiendo de la complejidad de la imagen)
 - **Latencia**: ~100-200ms por frame (incluyendo captura + inferencia)
 - **Resolución**: 1280x1024 píxeles (ROI de la cámara)
+- **Grabación**: Videos AVI a 5 FPS (optimizado para rendimiento real del sistema)
 
 ## 🎯 Ejemplos de Salida
 
@@ -95,11 +111,21 @@ Frame # 150 | NG | Def:  2 | FPS: 11.8 | Inf:  156.7ms
 ```
 
 ### Archivos Guardados
+
+**Frames individuales:**
 ```
 salida_video/
 ├── cople_video_20250116_143052_123_OK_def0.jpg
 ├── cople_video_20250116_143105_456_NG_def1.jpg
 └── cople_video_20250116_143120_789_NG_def3.jpg
+```
+
+**Videos grabados:**
+```
+salida_video/
+├── inferencia_cople_20250116_143000.avi
+├── inferencia_cople_20250116_144500.avi
+└── inferencia_cople_20250116_145200.avi
 ```
 
 ## 🔍 Diferencias con el Sistema de Imágenes
@@ -127,6 +153,20 @@ salida_video/
 ```
 **Solución**: Asegurarse de que `coples_seg1C8V.onnx` esté en el directorio raíz.
 
+### Video no reproducible / dañado
+```
+⚠️ Video creado pero muy pequeño: inferencia_cople_xxx.avi (512 bytes)
+❌ No se pudo leer ningún frame
+```
+**Soluciones**:
+1. **Cambiar codec durante ejecución**: Presiona `c` para cambiar entre MJPG/XVID/H264/MP4V
+2. **Probar codecs disponibles**: Ejecuta `python test_codecs.py` para ver qué funciona
+3. **Instalar codecs adicionales**: 
+   ```bash
+   sudo apt install ffmpeg libx264-dev libxvidcore-dev
+   ```
+4. **Usar MJPG**: Es el más compatible universalmente
+
 ### FPS bajo
 **Posibles causas**:
 - CPU sobrecargada
@@ -138,9 +178,17 @@ salida_video/
 - Aumentar el `confidence_threshold` para procesar menos detecciones
 - Cerrar otras aplicaciones pesadas
 
+### Violación de segmento
+**Soluciones implementadas**:
+- Liberación ordenada de recursos (video → OpenCV → cámara)
+- Pausas entre operaciones para evitar conflictos
+- Verificación de estado antes de cerrar componentes
+
 ## 📝 Notas Técnicas
 
 - El sistema usa **máscaras elípticas** para mejor rendimiento en video
 - **Filtrado automático** de contornos pequeños (< 50 píxeles) para reducir ruido
 - **Buffers optimizados** (3 buffers) para captura continua sin pérdida de frames
-- **Timeout de inferencia** para evitar bloqueos en frames complejos 
+- **Timeout de inferencia** para evitar bloqueos en frames complejos
+- **Codec XVID/MJPG** para grabación de video compatible y robusta (fallback automático)
+- **Control de FPS dinámico** ajusta la grabación al rendimiento real del sistema 

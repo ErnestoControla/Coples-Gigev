@@ -531,6 +531,140 @@ def agregar_anotaciones_video(frame, mascara, num_defectos, tiene_defectos, tiem
     
     return frame_anotado
 
+def verificar_video_valido(filepath):
+    """Verifica si el video generado es válido y reproducible"""
+    try:
+        # Intentar abrir el video con OpenCV
+        cap = cv2.VideoCapture(filepath)
+        if not cap.isOpened():
+            return False, "No se pudo abrir el video"
+        
+        # Verificar propiedades básicas
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        
+        # Intentar leer un frame
+        ret, frame = cap.read()
+        cap.release()
+        
+        if not ret:
+            return False, "No se pudo leer ningún frame"
+        
+        if frame_count == 0:
+            return False, "Video sin frames"
+            
+        print(f"   ✅ Video válido: {frame_count} frames, {fps} FPS, {width}x{height}")
+        return True, "Video válido"
+        
+    except Exception as e:
+        return False, f"Error verificando video: {e}"
+
+def iniciar_grabacion_video(output_dir, fps_grabacion=5.0, codec_preferido='MJPG'):
+    """Inicia la grabación de video con timestamp"""
+    try:
+        # Crear nombre de archivo con timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"inferencia_cople_{timestamp}.avi"  # Cambiar a AVI para mejor compatibilidad
+        filepath = os.path.join(output_dir, filename)
+        
+        # Configurar codec y VideoWriter
+        # Ordenar codecs poniendo el preferido primero
+        all_codecs = [
+            ('MJPG', 'MJPG'),  # Motion JPEG - MUY compatible
+            ('XVID', 'XVID'),  # AVI con XVID 
+            ('H264', 'H264'),  # H.264 si está disponible
+            ('MP4V', 'MP4V'),  # MPEG-4 fallback
+        ]
+        
+        # Reorganizar para poner el codec preferido primero
+        codecs_to_try = []
+        for codec_name, fourcc_str in all_codecs:
+            if codec_name == codec_preferido:
+                codecs_to_try.insert(0, (codec_name, fourcc_str))
+            else:
+                codecs_to_try.append((codec_name, fourcc_str))
+        
+        # Dimensiones del video (mismo tamaño que los frames)
+        frame_width = 1280
+        frame_height = 1024
+        
+        video_writer = None
+        codec_used = None
+        
+        for codec_name, fourcc_str in codecs_to_try:
+            try:
+                fourcc = cv2.VideoWriter_fourcc(*fourcc_str)
+                video_writer = cv2.VideoWriter(filepath, fourcc, fps_grabacion, (frame_width, frame_height))
+                
+                if video_writer.isOpened():
+                    codec_used = codec_name
+                    print(f"🎬 Grabación iniciada: {filename}")
+                    print(f"   📊 FPS: {fps_grabacion}, Resolución: {frame_width}x{frame_height}")
+                    print(f"   🎞️  Codec: {codec_used}")
+                    return video_writer, filename
+                else:
+                    if video_writer:
+                        video_writer.release()
+                        video_writer = None
+                        
+            except Exception as e:
+                print(f"   ⚠️ Codec {codec_name} no disponible: {e}")
+                if video_writer:
+                    video_writer.release()
+                    video_writer = None
+                continue
+        
+        print("❌ Error: No se pudo inicializar VideoWriter con ningún codec")
+        return None, None
+            
+    except Exception as e:
+        print(f"❌ Error iniciando grabación: {e}")
+        return None, None
+
+def detener_grabacion_video(video_writer, filename):
+    """Detiene la grabación de video y libera recursos de forma segura"""
+    try:
+        if video_writer is not None and video_writer.isOpened():
+            # Asegurarse de que todos los frames se escriban
+            video_writer.release()
+            # Dar tiempo suficiente para que se complete la escritura
+            time.sleep(0.5)
+            
+            # Verificar que el archivo existe y tiene contenido
+            if os.path.exists(filename):
+                file_size = os.path.getsize(filename)
+                if file_size > 1024:  # Al menos 1KB
+                    print(f"🎬 Grabación finalizada: {filename} ({file_size/1024:.1f} KB)")
+                    
+                    # Verificar si el video es reproducible
+                    es_valido, mensaje = verificar_video_valido(filename)
+                    if not es_valido:
+                        print(f"   ⚠️ {mensaje}")
+                        return False
+                    
+                    return True
+                else:
+                    print(f"⚠️ Video creado pero muy pequeño: {filename} ({file_size} bytes)")
+                    return False
+            else:
+                print(f"❌ Archivo de video no encontrado: {filename}")
+                return False
+        elif video_writer is not None:
+            print(f"⚠️ VideoWriter ya estaba cerrado: {filename}")
+            return True
+    except Exception as e:
+        print(f"❌ Error deteniendo grabación: {e}")
+        try:
+            # Intentar liberar de cualquier forma
+            if video_writer is not None:
+                video_writer.release()
+            time.sleep(0.2)
+        except:
+            pass
+    return False
+
 def main():
     """Función principal del sistema de video"""
     print("🎬 SISTEMA DE INFERENCIA DE VIDEO PARA COPLES")
@@ -539,8 +673,8 @@ def main():
     print("Mostrando OK/NG en tiempo real")
     print("=" * 50)
     
-    # Crear directorio de salida
-    output_dir = "salida_video"
+    # Crear directorio de salida con ruta absoluta
+    output_dir = "/home/ernesto/Documentos/Proyectos/Coples/salida_video"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         print(f"📁 Directorio '{output_dir}' creado")
@@ -569,8 +703,11 @@ def main():
     print("\n🎥 INICIANDO VIDEO EN TIEMPO REAL")
     print("Comandos:")
     print("  's' - Guardar frame actual")
+    print("  'r' - Iniciar/Detener grabación de video")
+    print("  'c' - Cambiar codec (MJPG/XVID)")
     print("  'q' - Salir")
     print("-" * 30)
+    print("💡 Sugerencia: Si el video no es reproducible, prueba 'c' para cambiar codec")
     
     # Crear ventana
     cv2.namedWindow('Video Inferencia Coples', cv2.WINDOW_NORMAL)
@@ -581,6 +718,15 @@ def main():
     fps_counter = 0
     fps_timer = time.time()
     fps_actual = 0
+    
+    # Variables de grabación de video
+    video_writer = None
+    grabando_video = False
+    video_filename = None
+    fps_grabacion = 5.0  # FPS para grabación (ajustado según rendimiento real)
+    tiempo_ultimo_frame_grabado = 0
+    intervalo_frame = 1.0 / fps_grabacion  # Intervalo entre frames para grabación
+    codec_preferido = 'MJPG'  # Codec por defecto (más compatible)
     
     try:
         while True:
@@ -612,6 +758,36 @@ def main():
                 cv2.putText(frame_display, "ERROR EN SEGMENTACION", (50, 50), 
                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             
+            # Agregar indicador de grabación si está activo
+            if grabando_video:
+                h, w = frame_display.shape[:2]
+                cv2.circle(frame_display, (w-50, 50), 15, (0, 0, 255), -1)  # Círculo rojo
+                cv2.putText(frame_display, "REC", (w-80, 60), cv2.FONT_HERSHEY_SIMPLEX, 
+                           0.6, (255, 255, 255), 2)
+            
+            # Grabar frame al video si está grabando y ha pasado suficiente tiempo
+            if grabando_video and video_writer is not None:
+                tiempo_actual = time.time()
+                if tiempo_actual - tiempo_ultimo_frame_grabado >= intervalo_frame:
+                    try:
+                        if video_writer.isOpened():
+                            video_writer.write(frame_display)
+                            tiempo_ultimo_frame_grabado = tiempo_actual
+                        else:
+                            print("⚠️ VideoWriter se cerró inesperadamente")
+                            grabando_video = False
+                            video_writer = None
+                    except Exception as e:
+                        print(f"⚠️ Error escribiendo frame al video: {e}")
+                        # Si hay error, detener grabación para evitar más problemas
+                        grabando_video = False
+                        try:
+                            if video_writer:
+                                video_writer.release()
+                        except:
+                            pass
+                        video_writer = None
+            
             # Mostrar frame
             cv2.imshow('Video Inferencia Coples', frame_display)
             
@@ -629,6 +805,29 @@ def main():
                 
                 cv2.imwrite(filepath, frame_display)
                 print(f"📸 Frame guardado: {filename}")
+            elif key == ord('r'):
+                # Iniciar/Detener grabación de video
+                if not grabando_video:
+                    # Iniciar grabación
+                    video_writer, video_filename = iniciar_grabacion_video(output_dir, fps_grabacion, codec_preferido)
+                    if video_writer is not None:
+                        grabando_video = True
+                        tiempo_ultimo_frame_grabado = time.time()
+                else:
+                    # Detener grabación
+                    if detener_grabacion_video(video_writer, video_filename):
+                        grabando_video = False
+                        video_writer = None
+                        video_filename = None
+            elif key == ord('c'):
+                # Cambiar codec preferido
+                codecs_disponibles = ['MJPG', 'XVID', 'H264', 'MP4V']
+                indice_actual = codecs_disponibles.index(codec_preferido) if codec_preferido in codecs_disponibles else 0
+                nuevo_indice = (indice_actual + 1) % len(codecs_disponibles)
+                codec_preferido = codecs_disponibles[nuevo_indice]
+                print(f"🎞️  Codec cambiado a: {codec_preferido}")
+                if grabando_video:
+                    print("   ⚠️ El cambio se aplicará en la próxima grabación")
             
             # Mostrar estadísticas cada 30 frames
             if frame_count % 30 == 0:
@@ -641,14 +840,65 @@ def main():
     
     finally:
         print("\n🧹 Liberando recursos...")
-        try:
-            camara.liberar()
-            cv2.destroyAllWindows()
-            cv2.waitKey(1)
-        except:
-            pass
         
-        print(f"✅ Video terminado - {frame_count} frames procesados")
+        try:
+            # 1. PRIMERO: Detener grabación de video si está activa
+            if grabando_video and video_writer is not None:
+                try:
+                    print("🎬 Deteniendo grabación de video...")
+                    detener_grabacion_video(video_writer, video_filename)
+                    video_writer = None  # Limpiar referencia
+                    time.sleep(0.2)  # Pausa adicional
+                except Exception as e:
+                    print(f"⚠️ Error cerrando video writer: {e}")
+                    try:
+                        if video_writer:
+                            video_writer.release()
+                            video_writer = None
+                            time.sleep(0.2)
+                    except:
+                        pass
+            
+            # 2. SEGUNDO: Pausa antes de cerrar OpenCV
+            time.sleep(0.1)
+            
+            # 3. TERCERO: Cerrar ventanas OpenCV de forma segura
+            try:
+                cv2.destroyAllWindows()
+                time.sleep(0.1)
+                cv2.waitKey(1)  # Procesar eventos de cierre
+                time.sleep(0.1)
+            except Exception as e:
+                print(f"⚠️ Error cerrando ventanas OpenCV: {e}")
+            
+            # 4. CUARTO: Pausa antes de liberar cámara
+            time.sleep(0.2)
+            
+            # 5. QUINTO: Liberar cámara de forma segura
+            try:
+                camara.liberar()
+                time.sleep(0.1)
+            except Exception as e:
+                print(f"⚠️ Error liberando cámara: {e}")
+            
+            # 6. SEXTO: Limpiar memoria final
+            try:
+                import gc
+                gc.collect()
+                time.sleep(0.1)
+            except:
+                pass
+                
+            print(f"✅ Video terminado - {frame_count} frames procesados")
+            
+        except Exception as e:
+            print(f"❌ Error en liberación de recursos: {e}")
+            # Intentar salida forzada y limpia
+            try:
+                import sys
+                sys.exit(0)
+            except:
+                pass
 
 if __name__ == "__main__":
     main()

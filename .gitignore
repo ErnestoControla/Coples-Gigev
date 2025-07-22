@@ -141,3 +141,50 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/linux,windows,macos,images
+
+### Video Files ###
+# Archivos de video - muy pesados y pueden causar problemas
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.flv
+*.webm
+*.m4v
+*.3gp
+*.3g2
+*.f4v
+*.f4p
+*.f4a
+*.f4b
+
+# Directorio de salida de videos
+salida_video/
+Salida_video/
+
+# Otros archivos multimedia pesados
+*.wav
+*.flac
+*.aac
+*.ogg
+*.wma
+*.m4a
+
+# Archivos temporales de video
+*.tmp
+*.temp
+*~
+
+# Archivos de Python compilados
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Archivos de log
+*.log
