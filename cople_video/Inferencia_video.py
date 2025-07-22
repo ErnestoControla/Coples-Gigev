@@ -247,11 +247,11 @@ class CamaraVideoCoples:
         self.capture_thread = None
         
         # Parámetros optimizados para video
-        self.exposure_time = 12000  # Más rápido para video fluido
+        self.exposure_time = 15000  # Más rápido para video fluido
         self.framerate = 15.0       # FPS para video
         self.packet_size = 9000
         self.num_buffers = 3        # Más buffers para video
-        self.gain = 1.5
+        self.gain = 2.0
         
         # ROI igual que el sistema original
         self.roi_width = 1280
