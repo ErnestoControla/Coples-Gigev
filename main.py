@@ -120,13 +120,14 @@ class SistemaSegmentacionCoples:
         
         return self.camara.obtener_frame_instantaneo()
     
-    def guardar_imagen(self, imagen, mascara=None):
+    def guardar_imagen(self, imagen, mascara=None, imagen_original=None):
         """
         Guarda una imagen con anotaciones en el directorio de salida.
         
         Args:
-            imagen (np.ndarray): Imagen a guardar
+            imagen (np.ndarray): Imagen procesada a guardar (con anotaciones/máscaras)
             mascara (np.ndarray, optional): Máscara de segmentación
+            imagen_original (np.ndarray, optional): Imagen original sin procesar
             
         Returns:
             str: Ruta del archivo guardado o None si hay error
@@ -138,9 +139,16 @@ class SistemaSegmentacionCoples:
             filename = generar_nombre_archivo(timestamp, self.frame_count)
             filepath = os.path.join(FileConfig.OUTPUT_DIR, filename)
             
-            # Guardar imagen
+            # Guardar imagen procesada
             cv2.imwrite(filepath, imagen)
-            print(f"📁 Imagen guardada: {filepath}")
+            print(f"📁 Imagen procesada guardada: {filepath}")
+            
+            # Guardar imagen original si se proporciona
+            if imagen_original is not None:
+                base_name = os.path.splitext(filepath)[0]
+                original_path = f"{base_name}_original.jpg"
+                cv2.imwrite(original_path, imagen_original)
+                print(f"📁 Imagen original guardada: {original_path}")
             
             # Mostrar estadísticas si hay máscara
             if mascara is not None:
@@ -151,7 +159,7 @@ class SistemaSegmentacionCoples:
                 # Guardar resultados intermedios para desarrollo
                 from config import DevConfig
                 if DevConfig.SAVE_INTERMEDIATE_RESULTS and stats['defect_pixels'] > 0:
-                    self._guardar_resultados_desarrollo(filepath, mascara, stats)
+                    self._guardar_resultados_desarrollo(filepath, mascara, stats, imagen_original)
             
             return filepath
             
@@ -159,7 +167,7 @@ class SistemaSegmentacionCoples:
             print(f"❌ Error guardando imagen: {e}")
             return None
     
-    def _guardar_resultados_desarrollo(self, filepath_base, mascara, stats):
+    def _guardar_resultados_desarrollo(self, filepath_base, mascara, stats, imagen_original=None):
         """
         Guarda resultados intermedios para análisis de desarrollo.
         
@@ -167,6 +175,7 @@ class SistemaSegmentacionCoples:
             filepath_base (str): Ruta base del archivo
             mascara (np.ndarray): Máscara de segmentación
             stats (dict): Estadísticas de la máscara
+            imagen_original (np.ndarray, optional): Imagen original sin procesar
         """
         try:
             import json
@@ -321,7 +330,7 @@ def procesar_comando_captura(sistema, ventana_cv):
         )
         
         # Guardar imagen
-        sistema.guardar_imagen(frame_anotado, mascara)
+        sistema.guardar_imagen(frame_anotado, mascara, frame)
         
         # Mostrar imagen
         cv2.imshow(ventana_cv, frame_anotado)

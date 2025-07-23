@@ -1,0 +1,13 @@
+{
+  "total_pixels": 1310720,
+  "defect_pixels": 2700,
+  "percentage": 0.20599365234375,
+  "num_regions": 2,
+  "areas": [
+    1118.0,
+    1408.5
+  ],
+  "avg_area": 1263.25,
+  "max_area": 1408.5,
+  "timestamp": "2025-07-22 18:13:03"
+}

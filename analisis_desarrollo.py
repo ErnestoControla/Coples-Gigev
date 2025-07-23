@@ -82,7 +82,8 @@ def analizar_resultado_detallado():
                     # Guardar imagen
                     filepath = sistema.guardar_imagen(
                         imagen_coloreada if imagen_coloreada is not None else frame, 
-                        mascara
+                        mascara,
+                        frame  # Pasar el frame original
                     )
                     
                     # Mostrar análisis de archivos generados
