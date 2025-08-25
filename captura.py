@@ -20,7 +20,7 @@ def ipAddr_from_string(s):
     return reduce(lambda a, b: a << 8 | b, map(int, s.split(".")))
 
 class CamaraCompleta:
-    def __init__(self, ip="169.254.8.46"):
+    def __init__(self, ip="172.16.1.21"):
         self.ip = ip
         self.handle = None
         self.buffer_addresses = None
