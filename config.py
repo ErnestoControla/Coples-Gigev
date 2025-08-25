@@ -10,7 +10,7 @@ class CameraConfig:
     """Configuración de la cámara GigE"""
     
     # Conexión
-    DEFAULT_IP = "169.254.8.46"
+    DEFAULT_IP = "172.16.1.21"
     MAX_CAMERAS = 16
     
     # Parámetros de captura optimizados para resolución alta
